@@ -1,20 +1,14 @@
 package org.upgrad.upstac.testrequests.lab;
 
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 import org.upgrad.upstac.config.security.UserLoggedInService;
 import org.upgrad.upstac.exception.AppException;
 import org.upgrad.upstac.testrequests.RequestStatus;
 import org.upgrad.upstac.testrequests.TestRequest;
 import org.upgrad.upstac.testrequests.TestRequestQueryService;
 import org.upgrad.upstac.testrequests.TestRequestUpdateService;
-import org.upgrad.upstac.testrequests.flow.TestRequestFlowService;
 import org.upgrad.upstac.users.User;
 
 import javax.validation.ConstraintViolationException;
@@ -28,24 +22,17 @@ import static org.upgrad.upstac.exception.UpgradResponseStatusException.asConstr
 @RequestMapping("/api/labrequests")
 public class LabRequestController {
 
-    Logger log = LoggerFactory.getLogger(LabRequestController.class);
-
-
-
-
     @Autowired
-    private TestRequestUpdateService testRequestUpdateService;
+    private TestRequestUpdateService requestsUpdateService;
 
     @Autowired
     private TestRequestQueryService testRequestQueryService;
 
     @Autowired
-    private TestRequestFlowService testRequestFlowService;
-
-
+    private UserLoggedInService userLoggedInService;
 
     @Autowired
-    private UserLoggedInService userLoggedInService;
+    LabResultService labResultService;
 
 
 
@@ -53,28 +40,23 @@ public class LabRequestController {
     @PreAuthorize("hasAnyRole('TESTER')")
     public List<TestRequest> getForTests()  {
 
-
-       return testRequestQueryService.findBy(RequestStatus.INITIATED);
-
-
-
-
+        try {
+            return testRequestQueryService.findBy(RequestStatus.INITIATED);
+        } catch (AppException e) {
+            throw asBadRequest(e.getMessage());
+        }
     }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('TESTER')")
     public List<TestRequest> getForTester()  {
 
-        // Implement This Method
-
-        // Create an object of User class and store the current logged in user first
-        //Implement this method to return the list of test requests assigned to current tester(make use of the above created User object)
-        //Make use of the findByTester() method from testRequestQueryService class
-        // For reference check the method getForTests() method from LabRequestController class
-
-        throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED,"Not implemented"); // replace this line with your code
-
-
+        try {
+            User loggedInUser = userLoggedInService.getLoggedInUser();
+            return testRequestQueryService.findByTester(loggedInUser);
+        } catch (AppException e) {
+            throw asBadRequest(e.getMessage());
+        }
     }
 
 
@@ -82,11 +64,12 @@ public class LabRequestController {
     @PutMapping("/assign/{id}")
     public TestRequest assignForLabTest(@PathVariable Long id) {
 
-
-
-        User tester =userLoggedInService.getLoggedInUser();
-
-      return   testRequestUpdateService.assignForLabTest(id,tester);
+        try {
+            User loggedInUser = userLoggedInService.getLoggedInUser();
+            return requestsUpdateService.assignForLabTest(id, loggedInUser);
+        }catch (AppException e) {
+            throw asBadRequest(e.getMessage());
+        }
     }
 
     @PreAuthorize("hasAnyRole('TESTER')")
@@ -94,20 +77,12 @@ public class LabRequestController {
     public TestRequest updateLabTest(@PathVariable Long id,@RequestBody CreateLabResult createLabResult) {
 
         try {
-
-            User tester=userLoggedInService.getLoggedInUser();
-            return testRequestUpdateService.updateLabTest(id,createLabResult,tester);
-
-
+            User loggedInUser = userLoggedInService.getLoggedInUser();
+            return requestsUpdateService.updateLabTest(id, createLabResult, loggedInUser);
         } catch (ConstraintViolationException e) {
             throw asConstraintViolation(e);
         }catch (AppException e) {
             throw asBadRequest(e.getMessage());
         }
     }
-
-
-
-
-
 }
